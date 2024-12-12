@@ -254,7 +254,7 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 	    if (TIM7->SR & TIM_SR_UIF) {
 	        TIM7->SR &= ~TIM_SR_UIF;
 
-	        // Alterner l'état du buzzer
+	        // Alterner l'état du buzzer et test github
 	        buzzer_enable = !buzzer_enable;
 	        if (buzzer_enable) {
 	            GPIOA->MODER |= (2 << (5 * 2));  // on active la sortie PWM sur PA8
