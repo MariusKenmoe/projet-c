@@ -11,14 +11,14 @@
  */
 // Mes variables marius
  uint8_t start_measurement = 1; // Flag pour démarrer une nouvelle mesure
- uint16_t distance_cm = 100;     // Distance calculée
+ uint16_t distance_cm = 300;     // Distance calculée
  uint8_t echo_valid = 0;       // Indique qu'une distance valide est prête
  uint8_t sensor_error = 0;     // Erreur (défaillance ou hors portée)
 
  float temperature = 0.0;  // Stocke la température mesurée
  uint16_t adc_value = 0;   // Valeur brute de l'ADC
  uint8_t buzzer_enable = 0; // État du buzzer (1 = activé, 0 = désactivé)
- uint16_t modulation_period = 1000;
+ uint16_t modulation_period=100;
  uint16_t distance_max = 300;
  uint16_t distance_min = 2;
 
@@ -39,7 +39,7 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 	uint32_t Indice_Value=0; //Indice utilisé pour suivre la position actuelle dans le tableau ADC_Value
 	double ADC_Affichage[60];//tableau pour stocker les valeurs converties de l'adc
 	double ADC_Min=4095; //Différence de potentiel minimale mesurée par l'adc, initialisé à 4095 (nombre décimal max sur 12 bits)
-	double ADC_Max; //Différence de potentiel maximale mesurée par l'adc
+	double ADC_Max; //KDifférence de potentiel maximale mesurée par l'adc
 	double dc_component; //variable reprenant la valeur de la composante dc du signal
 
 
@@ -53,6 +53,11 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 	    //! Configuration du microcontrolleur (GPIOs/Peripheriques/Horloge)
 		ConfigureMicroController();
 		EnableInterrupts();
+		 TIM7->PSC = 4000-1;
+		 //TIM7->ARR = 45; //// 45 MIN MAX 200
+	     TIM7->DIER |= TIM_DIER_UIE;
+		 TIM7->CR1 |= TIM_CR1_CEN;
+
 
 
 	    while(1)
@@ -102,6 +107,7 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 
 				test++;
 	    	}
+	    	ConfigureModulationTimer();
 	    	fonction_chargement();
 	    	//ModulationPeriod(distance_cm);
 
@@ -195,6 +201,8 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 	}
 
 
+
+
 // Code de gestion du signal du bip sonore
 /*void PWMDutyCycle(uint16_t distance_cm) {
     uint16_t distance_min = 2;  // Distance minimale (cm)
@@ -234,27 +242,37 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 	            GPIOA->MODER &= ~(3 << (5 * 2)); // on désactiver la sortie PWM (GPIO en entrée)
 	        }
 	    }
-	}
-
-	void ModulationPeriod(uint32_t distance) {
-	    if (distance_cm <= distance_min) {
-	        modulation_period = 100; // Bip continu
-	    } else if (distance_cm >= distance_max) {
-	        modulation_period = 0;   // Pas de bip
-	    } else {
-	        // Modulation proportionnelle à la distance
-	        modulation_period = 100 + ((distance_cm - distance_min) * 900) / (distance_max - distance_min);
-	    }
-
-	    // Mettre à jour TIM2->ARR
-	    TIM7->ARR = modulation_period - 1;
 	}*/
 
+	/*void ModulationPeriod(uint32_t distance) {
+	    if (distance_cm <= distance_min) {
+	        modulation_period = 0; // Bip continu
+	    } else if (distance_cm >= distance_max) {
+	    	modulation_period = 100000; // Bip continu  // Pas de bip
+	    } else {
+	        // Modulation proportionnelle à la distance
+	        modulation_period = 0 + ((distance_cm - distance_min) * 100000) / (distance_max - distance_min);
+	    }
+
+	    // On mettre à jour TIM2->ARR
+	    TIM7->ARR = modulation_period;
+	}*/
+
+	/*void ModulationPeriod(uint32_t distance) {
+
+
+		        // Modulation proportionnelle à la distance
+		        modulation_period = 0 + ((distance_cm - distance_min) * 100000) / (distance_max - distance_min);
+
+		    TIM7->ARR = modulation_period;
+		}*/
+
+	// programme d'interruption pour moduler le bip sonor
 	void TIM7_IRQHandler() {
 	    if (TIM7->SR & TIM_SR_UIF) {
 	        TIM7->SR &= ~TIM_SR_UIF;
 
-	        // Alterner l'état du buzzer et test github
+	        // Alterner l'état du buzzer
 	        buzzer_enable = !buzzer_enable;
 	        if (buzzer_enable) {
 	            GPIOA->MODER |= (2 << (5 * 2));  // on active la sortie PWM sur PA8
@@ -263,6 +281,48 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 	        }
 	    }
 	}
+
+	// Configuration du timer qui s'occupe de la modulation du bip
+	void ConfigureModulationTimer() {
+
+      if(distance_cm < distance_max)
+      {
+		if (distance_cm <=distance_min) {
+			 TIM7->ARR = 0;      // on active la sortie PWM sur PA8
+			        } else if (distance_cm <=50) {
+			        	 TIM7->ARR = 45; // on désactive la sortie PWM (GPIO en entrée)
+			        }
+	                   else if (distance_cm <=100){
+	                	   TIM7->ARR = 90; // on désactive la sortie PWM (GPIO en entrée)
+				          }
+
+		                   else if (distance_cm <=150){
+		                	   TIM7->ARR = 150; // on désactive la sortie PWM (GPIO en entrée)
+					          }
+		                   else if (distance_cm <=200){
+		                   		    TIM7->ARR = 200; // on désactive la sortie PWM (GPIO en entrée)
+		                   		 }
+		                   else if (distance_cm <=250){
+		                   		      TIM7->ARR = 250; // on désactive la sortie PWM (GPIO en entrée)
+		                   					          }
+		                   else{
+		                	   TIM7->ARR = 300;
+
+		                   }
+      }
+      else{
+    	  TIM2->CR1 &=  ~TIM_CR1_CEN_Msk;
+
+      }
+
+		    //TIM7->PSC = 4000-1;
+		    //TIM7->ARR = 45; //// 45 MIN MAX 200
+		    //TIM7->DIER |= TIM_DIER_UIE;
+		   // TIM7->CR1 |= TIM_CR1_CEN;
+
+
+
+		}
 
 
 
