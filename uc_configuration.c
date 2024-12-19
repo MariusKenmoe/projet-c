@@ -28,9 +28,11 @@ void ConfigureMicroController() {
        ConfigureGPIO_ADC();
        //ConfigureADC();
        //ConfigureTimer2();
-       EnableInterrupts2();
+       //EnableInterrupts2();
+       //InitializeTimer66();
+       //InitializeTimer77();
 
-       ConfigureModulationTimer();
+       //ConfigureModulationTimer();
 }
 
 
@@ -75,10 +77,7 @@ void EnableClockToPeripherals() {
     RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 }
 
-void SetupGPIOs() {
 
-
-}
 
 void ConfigureGPIO() {
 
@@ -253,7 +252,7 @@ void InitializeMeasurementTimer() {
 void InitializeTimer2() {
 	//! Prescaler for a counting period of 1ms (internal clock: 4MHz => Prescaler : /4000)
 	//! By default, AHB Prescaler and APBx Prescalers are configured to /1
-	TIM2->PSC = 20-1;
+	TIM2->PSC = 4-1;
 
 	// Specify the ARR value to 1000, for the counter to reset after 1 second
 	TIM2->ARR = WAIT_TIME * 2;
@@ -274,17 +273,7 @@ void InitializeTimer2() {
 	TIM2->CR1 |= TIM_CR1_CEN_Msk;
 }
 
-void ConfigureModulationTimer() {
 
-    // Configurer TIM5 pour générer une interruption périodique
-    TIM7->PSC = 4000-1;
-    TIM7->ARR = 1000;
-    TIM7->DIER |= TIM_DIER_UIE;
-    TIM7->CR1 |= TIM_CR1_CEN;
-
-    // Activer l'interruption dans le NVIC
-    NVIC_EnableIRQ(TIM7_IRQn);
-}
 
 /*void InitializePWM2() {
 
@@ -321,6 +310,8 @@ void EnableInterrupts(){
 	NVIC_EnableIRQ(TIM2_IRQn);
 	NVIC_EnableIRQ(TIM4_IRQn);
 	NVIC_EnableIRQ(TIM7_IRQn);
+	//NVIC_EnableIRQ(TIM6_DAC_IRQn);
+	NVIC_SetPriority(TIM6_DAC_IRQn, 1);
 }
 
 
@@ -362,13 +353,40 @@ void ConfigureGPIO_ADC(void) {
     TIM2->CR1 |= TIM_CR1_CEN;              // Démarrer le timer
 }*/
 
+
+//Initialisation de TIM6 pour gérer la période ON
+/*void InitializeTimer66() {
+    TIM6->PSC = 4000-1;
+    //TIM6->ARR = 100;  //Durée ON initiale en ms
+    TIM6->DIER |= TIM_DIER_UIE;
+    //NVIC_EnableIRQ(TIM6_DAC_IRQn);
+    TIM6->CR1 &= ~TIM_CR1_CEN_Msk;
+}
+
+// Initialisation de TIM7 pour gérer la période OFF
+void InitializeTimer77() {
+    TIM7->PSC = 4000-1;
+    //TIM7->ARR = 100;
+    TIM7->DIER |= TIM_DIER_UIE;
+    //NVIC_EnableIRQ(TIM7_IRQn);
+    TIM7->CR1 &= ~TIM_CR1_CEN_Msk;        // on Désactive initialement
+}*/
+
 // Configuration des interruptions
 void EnableInterrupts2(void) {
-    NVIC_EnableIRQ(TIM2_IRQn);             // Activer l'interruption Timer 2
+    NVIC_EnableIRQ(TIM2_IRQn);
+    NVIC_EnableIRQ(TIM7_IRQn);
+    //NVIC_EnableIRQ(TIM6_DAC_IRQn);
+    // Activer l'interruption Timer 2
     /*NVIC_SetPriority(TIM2_IRQn, 1);        // Priorité pour Timer 2
     NVIC_EnableIRQ(ADC3_IRQn);              // Activer l'interruption ADC
     NVIC_SetPriority(ADC3_IRQn, 2); */        // Priorité pour l'ADC
 }
+
+
+
+
+
 
 
 
