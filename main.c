@@ -11,16 +11,16 @@
  */
 // Mes variables marius
  uint8_t start_measurement = 1; // Flag pour démarrer une nouvelle mesure
- uint16_t distance_cm = 300;     // Distance calculée
+ volatile uint32_t distance_cm =0;     // Distance calculée
  uint8_t echo_valid = 0;       // Indique qu'une distance valide est prête
  uint8_t sensor_error = 0;     // Erreur (défaillance ou hors portée)
 
  float temperature = 0.0;  // Stocke la température mesurée
  uint16_t adc_value = 0;   // Valeur brute de l'ADC
  uint8_t buzzer_enable = 0; // État du buzzer (1 = activé, 0 = désactivé)
- uint16_t modulation_period=100;
- uint16_t distance_max = 300;
- uint16_t distance_min = 2;
+ volatile uint16_t modulation_period=0;
+ uint32_t distance_max = 300;
+ uint32_t distance_min = 20;
 
 
 // Les variables de grec
@@ -53,15 +53,17 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 	    //! Configuration du microcontrolleur (GPIOs/Peripheriques/Horloge)
 		ConfigureMicroController();
 		EnableInterrupts();
-		 TIM7->PSC = 4000-1;
-		 //TIM7->ARR = 45; //// 45 MIN MAX 200
-	     TIM7->DIER |= TIM_DIER_UIE;
-		 TIM7->CR1 |= TIM_CR1_CEN;
+
+
+
 
 
 
 	    while(1)
 	    {
+
+
+
 	    	if(test==0)
 	    	{
 				LCD_Configuration(0b00000011);
@@ -107,7 +109,7 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 
 				test++;
 	    	}
-	    	ConfigureModulationTimer();
+
 	    	fonction_chargement();
 	    	//ModulationPeriod(distance_cm);
 
@@ -142,46 +144,12 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 				            // Délai pour éviter des appels multiples inutiles
 				            for (unsigned i = 0; i < 1000; i++); // Attendre ~quelques ms
 				        }
-		for (int place = 4; place <= 22; place++) {
-			if(place<=15){
-						LCD_Adress(13);
-						for(unsigned i =0; i<1e1;i++);
-						LCD_Adress(place);
-						for(unsigned i =0; i<1e1;i++);
-						affichage_mot(")");
-						for(unsigned i =0; i<1e4;i++);
-			}
-			if(place>=15){
-							LCD_Adress(14);
-							for(unsigned i =0; i<1e1;i++);
-							LCD_Adress(place-15);
-							for(unsigned i =0; i<1e1;i++);
-							affichage_mot(")");
-							for(unsigned i =0; i<1e4;i++);
-						}
 
-					}
+
+
+
 		calcul_dist();
-		//décroissance
-		for (int place = 23; place >= 4; place--) {
-					if(place<=15){
-								LCD_Adress(13);
-								for(unsigned i =0; i<1e1;i++);
-								LCD_Adress(place);
-								for(unsigned i =0; i<1e1;i++);
-								affichage_mot("$");
-								for(unsigned i =0; i<1e4;i++);
-					}
-					if(place>=15){
-									LCD_Adress(14);
-									for(unsigned i =0; i<1e1;i++);
-									LCD_Adress(place-16);
-									for(unsigned i =0; i<1e1;i++);
-									affichage_mot("$");
-									for(unsigned i =0; i<1e4;i++);
-								}
 
-							}
 							//for(unsigned i =0; i<1;i++);
 
 							//LCD_Adress(8);
@@ -248,10 +216,10 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 	    if (distance_cm <= distance_min) {
 	        modulation_period = 0; // Bip continu
 	    } else if (distance_cm >= distance_max) {
-	    	modulation_period = 100000; // Bip continu  // Pas de bip
+	    	TIM2->CR1 &=  ~TIM_CR1_CEN_Msk; // Pas de bip
 	    } else {
 	        // Modulation proportionnelle à la distance
-	        modulation_period = 0 + ((distance_cm - distance_min) * 100000) / (distance_max - distance_min);
+	        modulation_period = 0 + ((distance_cm - distance_min) * 300) / (distance_max - distance_min);
 	    }
 
 	    // On mettre à jour TIM2->ARR
@@ -260,33 +228,39 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 
 	/*void ModulationPeriod(uint32_t distance) {
 
-
+		                TIM7->PSC = 4000-1;
+		      		            			 //TIM7->ARR = 45; //// 45 MIN MAX 200
+		      		 TIM7->DIER |= TIM_DIER_UIE;
+		      		            			 TIM7->CR1 |= TIM_CR1_CEN;
 		        // Modulation proportionnelle à la distance
-		        modulation_period = 0 + ((distance_cm - distance_min) * 100000) / (distance_max - distance_min);
+		        modulation_period = 0 + ((distance_cm - distance_min) * 300) / (distance_max - distance_min);
 
 		    TIM7->ARR = modulation_period;
 		}*/
 
-	// programme d'interruption pour moduler le bip sonor
-	void TIM7_IRQHandler() {
+	// programme d'interruption pour moduler le bip sonor JJJJJJJJJJJJJJJJJJJJJJJJJ
+	/*void TIM7_IRQHandler() {
 	    if (TIM7->SR & TIM_SR_UIF) {
 	        TIM7->SR &= ~TIM_SR_UIF;
 
 	        // Alterner l'état du buzzer
 	        buzzer_enable = !buzzer_enable;
 	        if (buzzer_enable) {
-	            GPIOA->MODER |= (2 << (5 * 2));  // on active la sortie PWM sur PA8
+	           // GPIOA->MODER |= (2 << (5 * 2));  // on active la sortie PWM sur PA5
+	        	 TIM2->CR1 |=  TIM_CR1_CEN_Msk;
 	        } else {
-	            GPIOA->MODER &= ~(3 << (5 * 2)); // on désactive la sortie PWM (GPIO en entrée)
+	            // on désactive le TMR PWM
+	        	 TIM2->CR1 &=  ~TIM_CR1_CEN_Msk;
 	        }
 	    }
-	}
+	}*/
 
 	// Configuration du timer qui s'occupe de la modulation du bip
-	void ConfigureModulationTimer() {
+	/*void ConfigureModulationTimer() {
 
       if(distance_cm < distance_max)
       {
+
 		if (distance_cm <=distance_min) {
 			 TIM7->ARR = 0;      // on active la sortie PWM sur PA8
 			        } else if (distance_cm <=50) {
@@ -314,6 +288,54 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
     	  TIM2->CR1 &=  ~TIM_CR1_CEN_Msk;
 
       }
+	}*/
+
+      // Configuration du timer qui s'occupe de la modulation du bip JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ
+      	/*void ConfigureModulationTimer() {
+
+      		TIM2->CCER |= TIM_CCER_CC1E;
+      		TIM7->PSC = 4000-1;
+      		            			 //TIM7->ARR = 45; //// 45 MIN MAX 200
+      		 TIM7->DIER |= TIM_DIER_UIE;
+    		 TIM7->CR1 |= TIM_CR1_CEN; //uint32_t local_distance = distance_cm ;
+
+
+
+      		if (distance_cm <=distance_min) {
+      			TIM2->CCER |= TIM_CCER_CC1E;
+      			 TIM7->ARR = 0;      // on active la sortie PWM sur PA8
+      			        } else if (distance_cm <distance_min*2) {
+      			        	TIM2->CCER |= TIM_CCER_CC1E;
+      			        	 TIM7->ARR = 45; // on désactive la sortie PWM (GPIO en entrée)
+      			        }
+      	                   else if (distance_cm <=distance_min*3){
+      	                	 TIM2->CCER |= TIM_CCER_CC1E;
+      	                	   TIM7->ARR = 90; // on désactive la sortie PWM (GPIO en entrée)
+      				          }
+
+      		                   else if (distance_cm <=distance_min*4){
+      		                	 TIM2->CCER |= TIM_CCER_CC1E;
+      		                	   TIM7->ARR = 150; // on désactive la sortie PWM (GPIO en entrée)
+      		                   }
+      		                 else if (distance_cm <=distance_min*6){
+      		                      		                	 TIM2->CCER |= TIM_CCER_CC1E;
+      		                      		                	   TIM7->ARR = 200; // on désactive la sortie PWM (GPIO en entrée)
+      		                      		                   }
+
+      		               else if (distance_cm <=distance_min*10){
+      		                    		                      		                	 TIM2->CCER |= TIM_CCER_CC1E;
+      		                    		                      		                	   TIM7->ARR = 250; // on désactive la sortie PWM (GPIO en entrée)
+      		                    		                      		                   }
+      		                   else{
+      		                	 TIM2->CR1 &=  ~TIM_CR1_CEN_Msk;
+
+
+      		                   }
+
+
+
+            }*/
+
 
 		    //TIM7->PSC = 4000-1;
 		    //TIM7->ARR = 45; //// 45 MIN MAX 200
@@ -322,7 +344,7 @@ uint8_t Compteur=1; //Permet de connaitre l'état du rotary encoder
 
 
 
-		}
+
 
 
 
@@ -370,8 +392,10 @@ void EXTI9_5_IRQHandler() {
             TIM3->CR1 &= ~TIM_CR1_CEN;
             uint32_t echo_duration = TIM3->CNT;
 
-            if (echo_duration >= 115 && echo_duration <= 18500) {
-                distance_cm = (echo_duration * 343) / (2 * 10000); // Calcul distance
+            if (echo_duration >= 115 && echo_duration <= 20000) {
+            	uint32_t distance_temp = (echo_duration * 343) / (2 * 10000); // Calcul distance
+                distance_cm=distance_temp;
+
                 echo_valid = 1;
 
                 // Ensuite on démarre le timer pour la prochaine mesure
@@ -864,8 +888,10 @@ void affichage(uint32_t counter) {
     aff(str);
     // Code spécifique pour afficher `str` sur ton écran (ex. LCD)
 }
-
+//ConfigureModulationTimer();
 if (start_measurement) {
+
+
             start_measurement = 0;
             GeneratePulse();          // Générer le pulse de 5 µs
             TIM3->CNT = 0;            // Réinitialiser pour tHOLDOFF
@@ -875,6 +901,8 @@ if (start_measurement) {
 
         if (echo_valid) {
             echo_valid = 0;
+            //ConfigureModulationTimer();
+
             for(unsigned i =0; i<1;i++);
                         LCD_Adress(8);
                         for(unsigned i =0; i<1e1;i++);
@@ -889,8 +917,17 @@ if (start_measurement) {
             				for(unsigned i =0; i<1e1;i++);
             				LCD_Adress(3);
             				affichage_mot("cm");
+            				// on clear l'affichage de la mesure ////////////////////////////////////////////////////
+
+
+
+
+            				//ModulationPeriod(distance_cm);
+            				AdjustModulation();
             				maj_progression();
             				progression(distance_cm);
+
+
             				 //PWMDutyCycle(distance_cm);
 
                        }
@@ -911,7 +948,7 @@ if (start_measurement) {
 
 
 
-void progression(int distance){
+void progression(int distance){		//affichage distance en petits carrés
 	if (distance > 10) {
 		for(unsigned i =0; i<1;i++);
 		LCD_Adress(12);
@@ -919,139 +956,140 @@ void progression(int distance){
 		LCD_Adress(0);
 		affichage_mot(")");
 	}
-	if (distance > 20){
+	else if (distance > 20){
 		for(unsigned i =0; i<1;i++);
 		LCD_Adress(12);
 		for(unsigned i =0; i<1e1;i++);
 		LCD_Adress(1);
 	    affichage_mot(")");
 	}
-	if (distance > 30){
+	else if (distance > 30){
 			for(unsigned i =0; i<1;i++);
 			LCD_Adress(12);
 			for(unsigned i =0; i<1e1;i++);
 			LCD_Adress(2);
 		    affichage_mot(")");
 		}
-	if (distance > 40){
+	else if (distance > 40){
 				for(unsigned i =0; i<1;i++);
 				LCD_Adress(12);
 				for(unsigned i =0; i<1e1;i++);
 				LCD_Adress(3);
 			    affichage_mot(")");
 			}
-	if (distance > 50){
+	else if (distance > 50){
 				for(unsigned i =0; i<1;i++);
 				LCD_Adress(12);
 				for(unsigned i =0; i<1e1;i++);
 				LCD_Adress(4);
 			    affichage_mot(")");
 			}
-	if (distance > 60){
+	else if (distance > 60){
 				for(unsigned i =0; i<1;i++);
 				LCD_Adress(12);
 				for(unsigned i =0; i<1e1;i++);
 				LCD_Adress(5);
 			    affichage_mot(")");
 			}
-	if (distance > 70){
+	else if (distance > 70){
 				for(unsigned i =0; i<1;i++);
 				LCD_Adress(12);
 				for(unsigned i =0; i<1e1;i++);
 				LCD_Adress(6);
 			    affichage_mot(")");
 			}
-	if (distance > 80){
+	else if (distance > 80){
 				for(unsigned i =0; i<1;i++);
 				LCD_Adress(12);
 				for(unsigned i =0; i<1e1;i++);
 				LCD_Adress(7);
 			    affichage_mot(")");
 			}
-	if (distance > 90){
+	else if (distance > 90){
 				for(unsigned i =0; i<1;i++);
 				LCD_Adress(12);
 				for(unsigned i =0; i<1e1;i++);
 				LCD_Adress(8);
 			    affichage_mot(")");
 			}
-	if (distance > 100){
+	else if (distance > 100){
 				for(unsigned i =0; i<1;i++);
 				LCD_Adress(12);
 				for(unsigned i =0; i<1e1;i++);
 				LCD_Adress(9);
 			    affichage_mot(")");
 			}
-	if (distance > 110){
+	else if (distance > 110){
 				for(unsigned i =0; i<1;i++);
 				LCD_Adress(12);
 				for(unsigned i =0; i<1e1;i++);
 				LCD_Adress(10);
 			    affichage_mot(")");
 			}
-	if (distance > 120){
+	else if (distance > 120){
 					for(unsigned i =0; i<1;i++);
 					LCD_Adress(12);
 					for(unsigned i =0; i<1e1;i++);
 					LCD_Adress(11);
 				    affichage_mot(")");
 				}
-	if (distance > 130){
+	else if (distance > 130){
 					for(unsigned i =0; i<1;i++);
 					LCD_Adress(12);
 					for(unsigned i =0; i<1e1;i++);
 					LCD_Adress(12);
 				    affichage_mot(")");
 				}
-	if (distance > 140){
+	else if (distance > 140){
 					for(unsigned i =0; i<1;i++);
 					LCD_Adress(12);
 					for(unsigned i =0; i<1e1;i++);
 					LCD_Adress(13);
 				    affichage_mot(")");
 				}
-	if (distance > 150){
+	else if (distance > 150){
 					for(unsigned i =0; i<1;i++);
 					LCD_Adress(12);
 					for(unsigned i =0; i<1e1;i++);
 					LCD_Adress(14);
 				    affichage_mot(")");
 				}
-	if (distance > 160){
+	else if (distance > 160){
 					for(unsigned i =0; i<1;i++);
 					LCD_Adress(12);
 					for(unsigned i =0; i<1e1;i++);
 					LCD_Adress(15);
 				    affichage_mot(")");
 				}
-	if (distance > 170){
+	else if (distance > 170){
 						for(unsigned i =0; i<1;i++);
 						LCD_Adress(13);
 						for(unsigned i =0; i<1e1;i++);
 						LCD_Adress(0);
 					    affichage_mot(")");
 					}
-	if (distance > 180){
+	else if (distance > 180){
 							for(unsigned i =0; i<1;i++);
 							LCD_Adress(13);
 							for(unsigned i =0; i<1e1;i++);
 							LCD_Adress(1);
 						    affichage_mot(")");
 						}
-	if (distance > 190){
+	else if (distance > 190){
 							for(unsigned i =0; i<1;i++);
 							LCD_Adress(13);
 							for(unsigned i =0; i<1e1;i++);
 							LCD_Adress(2);
 						    affichage_mot(")");
 						}
-	if (distance > 200){
+	                 else{                                            //(distance > 200)
 							for(unsigned i =0; i<1;i++);
 							LCD_Adress(13);
 							for(unsigned i =0; i<1e1;i++);
 							LCD_Adress(3);
 						    affichage_mot(")");
-						}
+						 }
+	//ConfigureModulationTimer(distance);
 }
 
 
@@ -1095,6 +1133,96 @@ void menu_demarrage(){
 }
 }
 
+
+// Gestion de TIM6 pour la période ON
+void TIM6_DAC_IRQHandler() {
+    if (TIM6->SR & TIM_SR_UIF) {
+        TIM6->SR &= ~TIM_SR_UIF;
+        TIM6->CR1 &= ~TIM_CR1_CEN_Msk;    //on Désactive TIM6
+
+        TIM2->CR1 &= ~TIM_CR1_CEN_Msk;    // on Désactive le PWM (buzzer OFF)
+        TIM7->CR1 |= TIM_CR1_CEN_Msk;     // on Active TIM7 pour la période OFF
+    }
+}
+
+// Gestion de TIM7 pour la période OFF
+void TIM7_IRQHandler() {
+    if (TIM7->SR & TIM_SR_UIF) {
+        TIM7->SR &= ~TIM_SR_UIF;
+        TIM7->CR1 &= ~TIM_CR1_CEN_Msk;    // on Désactive TIM7
+
+        TIM2->CR1 |= TIM_CR1_CEN_Msk;     // on Active le PWM (buzzer ON)
+        TIM6->CR1 |= TIM_CR1_CEN_Msk;     // on Active TIM6 pour la période ON
+    }
+}
+
+// Ajustement de la modulation en fonction de la distance
+void AdjustModulation() {
+
+	TIM7->PSC = 4000-1;
+					    //TIM7->ARR = 100;
+					    TIM7->DIER |= TIM_DIER_UIE;
+					    //NVIC_EnableIRQ(TIM7_IRQn);
+					    TIM7->CR1 |= TIM_CR1_CEN_Msk;
+
+					    TIM6->PSC = 4000-1;
+					        //TIM6->ARR = 100;  //Durée ON initiale en ms
+					        TIM6->DIER |= TIM_DIER_UIE;
+					        //NVIC_EnableIRQ(TIM6_DAC_IRQn);
+					        TIM6->CR1 |= TIM_CR1_CEN_Msk;
+
+
+
+
+    if (distance_cm <= distance_min) {
+        TIM6->ARR = 0;
+        TIM7->ARR = 0;
+        //TIM6->CR1 |= TIM_CR1_CEN_Msk;
+    } else if (distance_cm >= distance_max) {
+        TIM6->ARR = 0;    // Pas de période ON
+        TIM7->ARR = 0;    // Pas de période OFF
+        TIM2->CR1 &= ~TIM_CR1_CEN_Msk; // on Désactive complètement le buzzer
+    }
+
+
+    else if (distance_cm <= 50 ) {
+       TIM6->ARR = 20;
+       TIM7->ARR = 20;
+       TIM2->CR1 &= ~TIM_CR1_CEN_Msk;
+   }
+
+    else if (distance_cm <= 100 ) {
+           TIM6->ARR = 35;
+           TIM7->ARR = 75;
+           TIM2->CR1 &= ~TIM_CR1_CEN_Msk;
+       }
+
+    else if (distance_cm <= 150 ) {
+           TIM6->ARR = 50;
+           TIM7->ARR = 100;
+           TIM2->CR1 &= ~TIM_CR1_CEN_Msk;
+       }
+    else if (distance_cm <= 200 ) {
+               TIM6->ARR = 80;
+               TIM7->ARR = 160;
+               TIM2->CR1 &= ~TIM_CR1_CEN_Msk;
+           }
+
+
+    else if (distance_cm <= 250 ) {
+           TIM6->ARR = 120;
+           TIM7->ARR = 240;
+           TIM2->CR1 &= ~TIM_CR1_CEN_Msk;
+       }
+    else {
+        //uint32_t modulation_period = 100 + ((distance_cm -distance_min ) * 900) / (distance_max - distance_min);
+        //TIM6->ARR = modulation_period / 2; // Période ON
+        //TIM7->ARR = modulation_period / 2; // Période OFF
+        //TIM6->CR1 |= TIM_CR1_CEN_Msk; // Redémarrer la modulation
+    	TIM2->CR1 &= ~TIM_CR1_CEN_Msk; // on Désactiver complètement le buzzer
+
+    }
+}
 
 
 
